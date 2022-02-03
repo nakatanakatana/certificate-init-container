@@ -9,7 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	certificates "k8s.io/api/certificates/v1beta1"
+	certificates "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -79,21 +79,22 @@ func requestCertificate(client kubernetes.Interface, labels map[string]string, d
 	certificateSigningRequest := &certificates.CertificateSigningRequest{
 		TypeMeta: metaV1.TypeMeta{
 			Kind:       "CertificateSigningRequest",
-			APIVersion: "v1beta1",
+			APIVersion: "v1",
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:   certificateSigningRequestName,
 			Labels: labels,
 		},
 		Spec: certificates.CertificateSigningRequestSpec{
+			SignerName: certificates.KubeAPIServerClientKubeletSignerName,
 			Request: certificateRequestBytes,
 			Usages:  []certificates.KeyUsage{certificates.UsageDigitalSignature, certificates.UsageKeyEncipherment, certificates.UsageServerAuth, certificates.UsageClientAuth},
 		},
 	}
 
-	_, err = client.CertificatesV1beta1().CertificateSigningRequests().Get(context.TODO(), certificateSigningRequestName, metaV1.GetOptions{})
+	_, err = client.CertificatesV1().CertificateSigningRequests().Get(context.TODO(), certificateSigningRequestName, metaV1.GetOptions{})
 	if err != nil {
-		_, err = client.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), certificateSigningRequest, metaV1.CreateOptions{})
+		_, err = client.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), certificateSigningRequest, metaV1.CreateOptions{})
 		if err != nil {
 			log.Fatalf("unable to create the certificate signing request: %s", err)
 		}
@@ -103,7 +104,7 @@ func requestCertificate(client kubernetes.Interface, labels map[string]string, d
 	}
 
 	for {
-		csr, err := client.CertificatesV1beta1().CertificateSigningRequests().Get(context.TODO(), certificateSigningRequestName, metaV1.GetOptions{})
+		csr, err := client.CertificatesV1().CertificateSigningRequests().Get(context.TODO(), certificateSigningRequestName, metaV1.GetOptions{})
 		if errors.IsNotFound(err) {
 			// If the request got deleted, waiting won't help.
 			log.Fatalf("certificate signing request (%s) not found", certificateSigningRequestName)
